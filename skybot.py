@@ -147,7 +147,9 @@ def OnMessageStatus(Message, Status):
 		c = fullmsg.split(' ')
 
 		if clevertime:
-			s.SendMessage(senderhandle, cb.Ask(fullmsg).split("\x0D")[0])
+			botresponse = cb.Ask(fullmsg).split("\x0D")[0]
+			print('\r [' + time.strftime('%H:%M:%S') + '] Cleverbot: ' + greentext + botresponse + resettext)
+			s.SendMessage(senderhandle, botresponse )
 		else:
 			if body.startswith('ping ') or body.startswith('whois ') or body.startswith('traceroute ') or body.startswith('dig '):
 				iscmd = True
@@ -191,11 +193,11 @@ def OnMessageStatus(Message, Status):
 				else:
 					s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
 
-			elif fullmsg.startswith('wolf '):
+			elif fullmsg.lower().startswith('wolf '):
 				know = ''
 				s.SendMessage(senderhandle, ' (cash) Wolf is thinking..')
 				s.SendMessage(senderhandle, '')
-				os.system( 'modules/wolf.sh ' + ' '.join(c[1:]).strip(';').strip('&').strip('|').strip('`').strip('"').strip("'"))
+				os.system( 'modules/wolf.sh ' + cleaninput(' '.join(c[1:]).replace('?', ''))
 				with open('/tmp/wolf', 'r') as ifile:
 					for line in ifile:
 						know += line
@@ -211,14 +213,14 @@ def OnMessageStatus(Message, Status):
 			else:
 				if cleaninput(body) == '#':
 					if iscmd:
-						print('\r' + time.strftime('%H:%M:%S') + ' ' + senderhandle + ': ' + redtext + body + resettext)
+						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + redtext + body + resettext)
 					else:
-						print('\r' + time.strftime('%H:%M:%S') + ' ' + senderhandle + ': ' + bluetext + body + resettext)
+						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
 				else:
 					if iscmd:
-						print('\r' + time.strftime('%H:%M:%S') + ' ' + senderhandle + ': ' + greentext + body + resettext)
+						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + greentext + body + resettext)
 					else:
-						print('\r' + time.strftime('%H:%M:%S') + ' ' + senderhandle + ': ' + bluetext + body + resettext)
+						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
 				talk(fullmsg)
 
 			if chatstat:
