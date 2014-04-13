@@ -17,11 +17,12 @@
 
 try:
 	import sys, os, subprocess, socket, time, Skype4Py, random, readline, re, pty, string, threading, signal
-except:
-	print ' [X] Import Error, please run:\nsudo apt-get install python-pip;sudo pip install Skype4Py\n'
+except ImportError as e:
+	print ' [X] Import Error: ' + str(e) + '\n\n [*] Please run:\nsudo apt-get install python-pip xdotool espeak;sudo pip install Skype4Py\n'
+	exit()
 
 if not subprocess.Popen(['which', 'xdotool'], stdout=subprocess.PIPE).communicate()[0] or not subprocess.Popen(['which', 'espeak'], stdout=subprocess.PIPE).communicate()[0]:
-	print " [X] Dependency Error: please run:\nsudo apt-get install xdotool;sudo apt-get install espeak\n"
+	print " [X] Dependency Error: please run:\nsudo apt-get install xdotool espeak\n"
 	exit()
 
 sys.path.append(os.getcwd() + '/modules/')
@@ -69,17 +70,18 @@ def ls(status):
 	print ''
 	a, b = '', ''
 	for user in s.Friends:
-		if user.Handle != 'echo123':
-			if user.NumberOfAuthBuddies != 0:
-				a = '\tFriends: ' + str(user.NumberOfAuthBuddies)
-			if user.Country or user.City:
-				b = '\t' + yellowtext + user.City + '\t' + user.Country + resettext
-			if user.OnlineStatus != 'OFFLINE':
-				if status.lower() == 'online' or status.lower() == 'all':
-					print(greentext + user.Handle + resettext + ' (' + user.FullName + ')' + '\t' + bluetext + user.OnlineStatus + resettext + a + b )
-			else:
-				if status.lower() == 'offline' or status.lower() == 'all':
-					print(redtext + user.Handle + resettext + ' (' + user.FullName + ')' + '\t' + bluetext + user.OnlineStatus + resettext + a + b )
+		if user.Handle == 'echo123':
+			continue
+		if user.NumberOfAuthBuddies != 0:
+			a = '\tFriends: ' + str(user.NumberOfAuthBuddies)
+		if user.Country or user.City:
+			b = '\t' + yellowtext + user.City + '\t' + user.Country + resettext
+		if user.OnlineStatus != 'OFFLINE':
+			if status.lower() == 'online' or status.lower() == 'all':
+				print(greentext + user.Handle + resettext + ' (' + user.FullName + ')' + '\t' + bluetext + user.OnlineStatus + resettext + a + b )
+		else:
+			if status.lower() == 'offline' or status.lower() == 'all':
+				print(redtext + user.Handle + resettext + ' (' + user.FullName + ')' + '\t' + bluetext + user.OnlineStatus + resettext + a + b )
 
 def OnAttach(status):
 	print ' API attachment status: ' + greentext + s.Convert.AttachmentStatusToText(status) + resettext
@@ -96,24 +98,23 @@ def msg(user, times, message):
 
 def chat(user):
 	global chatstat, chatuser
-	if checkname(user):
-		print greentext + ' [*] ' + resettext + 'Chatting with ' + greentext + user + resettext + '. type ' + redtext + "'exit'" + resettext + ' to go back to main menu.\n'
-		cmd = ''
-		chatstat, chatuser = True, user
-		while True:
-			try:
-				cmd = raw_input('\r(' + user + ')' + greentext + ' > ' + resettext)
-				if cmd == 'exit':
-					chatstat = False
-					print '\n\r ' + redtext + '[*] ' + resettext + 'Returned to main menu.'
-					break
-				else:
-					c = cmd.split(' ')
-					msg(user, 1, c)
-			except:
-				exit()
-	else:
+	if not checkname(user):
 		print redtext + user + resettext + ' not found!'
+		return
+	print greentext + ' [*] ' + resettext + 'Chatting with ' + greentext + user + resettext + '. type ' + redtext + "'exit'" + resettext + ' to go back to main menu.\n'
+	cmd = ''
+	chatstat, chatuser = True, user
+	while True:
+		try:
+			cmd = raw_input('\r(' + user + ')' + greentext + ' > ' + resettext)
+			if cmd == 'exit':
+				chatstat = False
+				print '\n\r ' + redtext + '[*] ' + resettext + 'Returned to main menu.'
+				return
+			c = cmd.split(' ')
+			msg(user, 1, c)
+		except:
+			exit()		
 
 def history(user, ofile):
 	chats = s.Chats
@@ -131,7 +132,8 @@ def history(user, ofile):
 	Printer(bluetext + '> ' + resettext)
 
 def launchshell():
-	cmd = '''python -c "import os,pty,socket;s = socket.socket(socket.AF_INET, socket.SOCK_STREAM);s.bind(('', 4444));s.listen(1);(rem, addr) = s.accept();os.dup2(rem.fileno(),0);os.dup2(rem.fileno(),1);os.dup2(rem.fileno(),2);os.putenv('HISTFILE','/dev/null');pty.spawn('/bin/bash');s.close()"'''
+	cmd = '''python -c "import os,pty,socket;s = socket.socket(socket.AF_INET, socket.SOCK_STREAM);s.bind(('', 4444));s.listen(1);(rem, addr)=s.accept()''' \
+	''';os.dup2(rem.fileno(),0);os.dup2(rem.fileno(),1);os.dup2(rem.fileno(),2);os.putenv('HISTFILE','/dev/null');pty.spawn('/bin/bash');s.close()"'''
 	os.popen(cmd)
 
 def fdebug():
@@ -140,93 +142,109 @@ def fdebug():
 	p.communicate()
 
 def OnMessageStatus(Message, Status):
-	if Status == 'RECEIVED':
-		global body
-		body, senderhandle, senderdispname = Message.Body, Message.FromHandle, Message.FromDisplayName
-		fullmsg = body.strip('\n')
-		c = fullmsg.split(' ')
+	if Status != 'RECEIVED':
+		return
+	global body
+	body, senderhandle, senderdispname = Message.Body, Message.FromHandle, Message.FromDisplayName
+	fullmsg = body.strip('\n')
+	c = fullmsg.split(' ')
 
-		if clevertime:
-			botresponse = cb.Ask(fullmsg).split("\x0D")[0]
-			print('\r [' + time.strftime('%H:%M:%S') + '] Cleverbot: ' + greentext + botresponse + resettext)
-			s.SendMessage(senderhandle, botresponse )
+	if clevertime:
+		print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
+		talk(body)
+		botresponse = cb.Ask(fullmsg).split("\x0D")[0].lower().strip('\n')
+		banwords = ['clevertweet', 'clevermessage', 'cleverbot', 'cleverscript', 'cleverme']
+		for w in banwords:
+			if re.findall(w, botresponse):
+				botresponse = cb.Ask(fullmsg).split("\x0D")[0].lower().strip('\n')
+				break
+		print('\r [' + time.strftime('%H:%M:%S') + '] Cleverbot: ' + greentext + botresponse + resettext)
+		s.SendMessage(senderhandle, botresponse)
+		talk(botresponse)
+		if chatstat:
+			Printer('(' + chatuser + ')' + greentext + ' > ' + resettext)
 		else:
-			if body.startswith('ping ') or body.startswith('whois ') or body.startswith('traceroute ') or body.startswith('dig '):
-				iscmd = True
-			else:
-				iscmd = False
+			Printer(bluetext + '> ' + resettext)
+		return
 
+	iscmd = False
+	rcmds = [ 'ping ', 'whois ', 'traceroute ', 'dig ']
+	for c in rcmds:
+		if body.startswith(c):
+			iscmd = True
+
+	if iscmd:
+		if len(c) == 2:
+			if cleaninput(fullmsg) == '#':
+				pass
+			else: 
+				s.SendMessage(senderhandle, ' (cash) Processing ' + cleaninput(c[0]) + ' command..')
+				if fullmsg.startswith('ping '):
+					a = os.popen('ping -c 2 -s.2 ' + cleaninput(c[1]))
+				else:
+					a = os.popen(cleaninput(c[0]) + ' ' + cleaninput(c[1]))
+			try:
+				s.SendMessage(senderhandle, a.read())
+				talk('command received from ' + senderhandle + ', ' + cleaninput(c[0]) + ' processing.')
+			except:
+				s.SendMessage(senderhandle, ' (6) illegal command! (' + fullmsg + ')')
+				
+		else:
+			s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
+
+	elif fullmsg.startswith('y0? '):
+		os.system('echo ' + cleaninput(c[1]) + " | md5sum | md5sum | md5sum | cut -d ' ' -f 1 > /tmp/md5sum")
+		p =  open('/tmp/md5sum', 'r')
+		fsum = p.read().strip('\n')
+		p.close()
+		s.SendMessage(senderhandle, '(6) Sup ' + fsum)
+
+	elif fullmsg.startswith('whatis '):
+		if cleaninput(c[1]) != '#':
+			s.SendMessage(senderhandle, ' (cash) Finding out what ' + cleaninput(c[1]) + ' is..')
+			s.SendMessage(senderhandle, '')
+			sortcmd = ''' | grep '<meta name="description" content="' | cut -d '"' -f 4 | cut -d ',' -f 2-99 | head -c -10 > /tmp/def'''
+			os.system('''curl -s http://dictionary.reference.com/browse/''' + cleaninput(c[1]) + sortcmd)
+			d = open('/tmp/def', 'r')
+			s.SendMessage(senderhandle, d.read())
+			d.close
+		else:
+			s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
+
+	elif fullmsg.lower().startswith('wolf '):
+		know = ''
+		s.SendMessage(senderhandle, ' (cash) Wolf is thinking..')
+		s.SendMessage(senderhandle, '')
+		os.system( 'modules/wolf.sh ' + cleaninput(' '.join(c[1:]).replace('?', '')))
+		with open('/tmp/wolf', 'r') as ifile:
+			for line in ifile:
+				know += line
+			if len(know) > 1:
+				s.SendMessage(senderhandle, know)
+			else:
+				s.SendMessage(senderhandle, ' [*] wolf does not know, please re-phrase your question.')
+
+	elif fullmsg.startswith('(6) Sup '):
+		if c[2] == checksum:
+			print greentext + ' [*] ' + senderhandle + resettext + ' is a confirmed ' + redtext + 'SkyB0t.' + resettext
+
+	else:
+		if cleaninput(body) == '#':
 			if iscmd:
-				if len(c) == 2:
-					if cleaninput(fullmsg) == '#':
-						pass
-					else: 
-						s.SendMessage(senderhandle, ' (cash) Processing ' + cleaninput(c[0]) + ' command..')
-						if fullmsg.startswith('ping '):
-							a = os.popen('ping -c 2 -s.2 ' + cleaninput(c[1]))
-						else:
-							a = os.popen(cleaninput(c[0]) + ' ' + cleaninput(c[1]))
-					try:
-						s.SendMessage(senderhandle, a.read())
-						talk('command received from ' + senderhandle + ', ' + cleaninput(c[0]) + ' processing.')
-					except:
-						s.SendMessage(senderhandle, ' (6) illegal command! (' + fullmsg + ')')
-						
-				else:
-					s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
-
-			elif fullmsg.startswith('y0? '):
-				os.system('echo ' + cleaninput(c[1]) + " | md5sum | md5sum | md5sum | cut -d ' ' -f 1 > /tmp/md5sum")
-				p =  open('/tmp/md5sum', 'r')
-				fsum = p.read().strip('\n')
-				p.close()
-				s.SendMessage(senderhandle, '(6) Sup ' + fsum)
-
-			elif fullmsg.startswith('whatis '):
-				if cleaninput(c[1]) != '#':
-					s.SendMessage(senderhandle, ' (cash) Finding out what ' + cleaninput(c[1]) + ' is..')
-					s.SendMessage(senderhandle, '')
-					os.system('''curl -s http://dictionary.reference.com/browse/''' + cleaninput(c[1]) + ''' | grep '<meta name="description" content="' | cut -d '"' -f 4 | cut -d ',' -f 2-99 | head -c -10 > /tmp/def''')
-					d = open('/tmp/def', 'r')
-					s.SendMessage(senderhandle, d.read())
-					d.close
-				else:
-					s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
-
-			elif fullmsg.lower().startswith('wolf '):
-				know = ''
-				s.SendMessage(senderhandle, ' (cash) Wolf is thinking..')
-				s.SendMessage(senderhandle, '')
-				os.system( 'modules/wolf.sh ' + cleaninput(' '.join(c[1:]).replace('?', ''))
-				with open('/tmp/wolf', 'r') as ifile:
-					for line in ifile:
-						know += line
-					if len(know) > 1:
-						s.SendMessage(senderhandle, know)
-					else:
-						s.SendMessage(senderhandle, ' [*] wolf does not know, please re-phrase your question.')
-
-			elif fullmsg.startswith('(6) Sup '):
-				if c[2] == checksum:
-					print greentext + ' [*] ' + senderhandle + resettext + ' is a confirmed ' + redtext + 'SkyB0t.' + resettext
-
+				print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + redtext + body + resettext)
 			else:
-				if cleaninput(body) == '#':
-					if iscmd:
-						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + redtext + body + resettext)
-					else:
-						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
-				else:
-					if iscmd:
-						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + greentext + body + resettext)
-					else:
-						print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
-				talk(fullmsg)
-
-			if chatstat:
-				Printer('(' + chatuser + ')' + greentext + ' > ' + resettext)
+				print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
+		else:
+			if iscmd:
+				print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + greentext + body + resettext)
 			else:
-				Printer(bluetext + '> ' + resettext)
+				print('\r [' + time.strftime('%H:%M:%S') + '] ' + senderhandle + ': ' + bluetext + body + resettext)
+		talk(fullmsg)
+
+	if chatstat:
+		Printer('(' + chatuser + ')' + greentext + ' > ' + resettext)
+	else:
+		Printer(bluetext + '> ' + resettext)
 
 def cleaninput(input):
 	if re.match(r'^[A-Za-z0-9. ]+$', input):
@@ -247,7 +265,6 @@ def checkname(user):
 	for f in s.Friends:
 		if f.Handle == user:
 			return True
-			break
 
 def ftunnel(user, port, server, channel):
 	if server:
@@ -256,7 +273,9 @@ def ftunnel(user, port, server, channel):
 		os.popen(os.getcwd() + '/modules/' + 'skypetunnel.py -p ' + port + ' -u ' + user + ':' + channel + ' 2> /dev/null')
 
 def complete(text, state):
-	cmds  = [ 'cleverbot', 'flood ', 'groupflood ', 'egroupflood ', 'msg ', 'cmdshellserver ', 'cmdshellclient ', 'tunnelserver ', 'tunnelclient ', 'search ', 'isabot ', 'history ', 'help', 'voice ', 'chat ', 'ls', 'exit', 'call ', 'eflood ', 'online', 'offline', 'send ', 'add ', 'show', 'hide', 'info ', 'callhistory', 'contacts', 'debug', 'status ', 'away', 'invisible' ]
+	cmds  = [ 'cleverbot', 'flood ', 'groupflood ', 'egroupflood ', 'msg ', 'cmdshellserver ', 'cmdshellclient ', 'tunnelserver ', 
+	'tunnelclient ', 'search ', 'isabot ', 'history ', 'help', 'voice ', 'chat ', 'ls', 'exit', 'call ', 'eflood ', 'online', 
+	'offline', 'send ', 'add ', 'show', 'hide', 'info ', 'callhistory', 'contacts', 'debug', 'status ', 'away', 'invisible' ]
 	for f in s.Friends:
 		if f.Handle != 'echo123':
 			cmds.append(f.Handle)
@@ -314,22 +333,24 @@ def menu(cmd):
 
 	elif cmd.startswith('groupflood '):
 		for gc in s.ActiveChats:
-			if len(gc.Members) > 2:
-				cnt, m = 0, ''
-				message = c[2:]
-				while cnt < int(c[1]):
-					cnt += 1
-					m += ' '.join(message) 
-					gc.SendMessage(m)
+			if len(gc.Members) <= 2:
+				continue
+			cnt, m = 0, ''
+			message = c[2:]
+			while cnt < int(c[1]):
+				cnt += 1
+				m += ' '.join(message) 
+				gc.SendMessage(m)
 
 	elif cmd.startswith('egroupflood '):
 		for gc in s.ActiveChats:
-			if len(gc.Members) > 2:
-				cnt = 0
-				while cnt < int(c[1]):
-					m = "".join([random.choice(emoticons) for n in xrange(random.randint(60,250))])
-					cnt += 1
-					gc.SendMessage(m)
+			if len(gc.Members) <= 2:
+				continue
+			cnt = 0
+			while cnt < int(c[1]):
+				m = "".join([random.choice(emoticons) for n in xrange(random.randint(60,250))])
+				cnt += 1
+				gc.SendMessage(m)
 				
 	elif cmd.startswith('eflood'):
 		try:
@@ -501,11 +522,9 @@ def menu(cmd):
 		except:
 			print ' Usage: history username /path/to/outfile'
 
-	else:
-		if c[0]:
-			print redtext + ' Error' + resettext + ': ' + bluetext + c[0] + resettext + ' command not found, ? for help'
-		else:
-			pass
+	elif c[0]:
+		print redtext + ' Error' + resettext + ': ' + bluetext + c[0] + resettext + ' command not found, ? for help'
+
 
 voice, cmd, chatstat, speed, pitch = True, '', False, 175, 50
 bluetext = '\033[01;34m'
@@ -513,12 +532,18 @@ greentext = '\033[01;32m'
 redtext = '\033[01;31m'
 yellowtext = '\033[01;33m'	
 resettext = '\033[0m'
-emoticons = [':)', ':(', ':D', '(cool)', ':O', ';)', ';(', '(:|', ':|', ':*', ':P', ':$', ':^)', '|-)', '|-(', '(inlove)', ']:)', '(yn)', '(yawn)', '(puke)', '(doh)', '(angry)', '(wasntme)', '(party)', '(worry)', '(mm)', '(nerd)', ':x', '(wave)', '(facepalm)', '(devil)', '(angel)', '(envy)', '(wait)', '(hug)', '(makeup)', '(chuckle)', '(clap)', '(think)', '(bow)', '(rofl)', '(whew)', '(happy)', '(smirk)', '(nod)', '(shake)', '(waiting)', '(emo)', '(y)', '(n)', '(handshake)', '(highfive)', '(heart)', '(lalala)', '(heidy)', '(F)', '(rain)', '(sun)', '(tumbleweed)', '(music)', '(bandit)', '(tmi)', '(coffee)', '(pi)', '(cash)', '(flex)', '(^)', '(beer)', '(d)', '\o/', '(ninja)', '(*)', '(finger)', '(drunk)', '(ci)', '(toivo)', '(rock)', '(headbang)', '(bug)', '(fubar)', '(poolparty)', '(swear)', '(mooning)', '(hug)', '(kate)', '(whew)', '(punch)', '(ss)', '(u)', '(e)', '(london)', '(time)', '(~)', '(ph)' ]
+emoticons = [':)', ':(', ':D', '(cool)', ':O', ';)', ';(', '(:|', ':|', ':*', ':P', ':$', ':^)', '|-)', '|-(', '(inlove)', ']:)', '(yn)', '(yawn)', 
+'(puke)', '(doh)', '(angry)', '(wasntme)', '(party)', '(worry)', '(mm)', '(nerd)', ':x', '(wave)', '(facepalm)', '(devil)', '(angel)', '(envy)', 
+'(wait)', '(hug)', '(makeup)', '(chuckle)', '(clap)', '(think)', '(bow)', '(rofl)', '(whew)', '(happy)', '(smirk)', '(nod)', '(shake)', '(waiting)', 
+'(emo)', '(y)', '(n)', '(handshake)', '(highfive)', '(heart)', '(lalala)', '(heidy)', '(F)', '(rain)', '(sun)', '(tumbleweed)', '(music)', '(bandit)', 
+'(tmi)', '(coffee)', '(pi)', '(cash)', '(flex)', '(^)', '(beer)', '(d)', '\o/', '(ninja)', '(*)', '(finger)', '(drunk)', '(ci)', '(toivo)', '(rock)', 
+'(headbang)', '(bug)', '(fubar)', '(poolparty)', '(swear)', '(mooning)', '(hug)', '(kate)', '(whew)', '(punch)', '(ss)', '(u)', '(e)', '(london)', 
+'(time)', '(~)', '(ph)' ]
 
 readline.parse_and_bind("tab: complete")
 readline.set_completer(complete)
 signal.signal(signal.SIGINT, fexit)
-cb=cleverbot.Session()
+cb = cleverbot.Session()
 clevertime = False
 
 def attach():
