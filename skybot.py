@@ -46,6 +46,7 @@ def fhelp():
 ''' + greentext + ' search' + resettext + ''' USER                 -   Search for USER
 ''' + greentext + ' add' + resettext + ''' USER                    -   Add USER to contacts
 ''' + greentext + ' send' + resettext + ''' USER                   -   Send a file to USER
+''' + greentext + ' resolve' + resettext + ''' USER                -   Attempt to resolve USER IP address
 ''' + greentext + ' isabot' + resettext + ''' USER                 -   Check if USER is running SkyB0t
 ''' + greentext + ' cmdshellserver ' + resettext + ''' USER        -   Spawn a command shell and tunnel over skype to USER
 ''' + greentext + ' cmdshellclient ' + resettext + ''' USER        -   Connect to a command shell tunneled over skype from USER
@@ -194,9 +195,7 @@ def OnMessageStatus(Message, Status):
 
 	elif fullmsg.startswith('y0? '):
 		os.system('echo ' + cleaninput(c[1]) + " | md5sum | md5sum | md5sum | cut -d ' ' -f 1 > /tmp/md5sum")
-		p =  open('/tmp/md5sum', 'r')
-		fsum = p.read().strip('\n')
-		p.close()
+		fsum = fread('/tmp/md5sum').strip('\n')
 		s.SendMessage(senderhandle, '(6) Sup ' + fsum)
 
 	elif fullmsg.startswith('whatis '):
@@ -205,9 +204,7 @@ def OnMessageStatus(Message, Status):
 			s.SendMessage(senderhandle, '')
 			sortcmd = ''' | grep '<meta name="description" content="' | cut -d '"' -f 4 | cut -d ',' -f 2-99 | head -c -10 > /tmp/def'''
 			os.system('''curl -s http://dictionary.reference.com/browse/''' + cleaninput(c[1]) + sortcmd)
-			d = open('/tmp/def', 'r')
-			s.SendMessage(senderhandle, d.read())
-			d.close
+			s.SendMessage(senderhandle, fread('/tmp/def'))
 		else:
 			s.SendMessage(senderhandle,' (6) illegal command! (' + fullmsg + ')')
 
@@ -252,13 +249,36 @@ def cleaninput(input):
 	else:
 		return '#'
 
+def fread(ofile):
+	readf = open(ofile, 'r')
+	return readf.read()
+	readf.close()
+
+def fresolve(user):
+	fm = s.SendMessage(user, '')
+	print greentext + ' [*] ' + resettext + 'Attempting to resolve ' + redtext + user + resettext + '\n'
+	time.sleep(4)
+	os.system("netstat -tupan | grep skype | grep -v '0.0.0.0' | cut -d ' ' -f 16 | cut -d ':' -f 1 | head -n 1 > /tmp/skypeip")
+	myip = fread('/tmp/skypeip')
+	os.system("netstat -tupan | grep skype | grep -v '0.0.0.0' | grep '" + myip + "' | grep ESTABLISHED | cut -d ':' -f 2 | cut -d ' ' -f 2- | tr -d ' ' > /tmp/ips")
+	skypeips = fread('/tmp/ips').strip().split('\n')
+	for ip in skypeips:
+		os.system('whois ' + ip + ' > /tmp/whois')
+		whoisdata = fread('/tmp/whois')
+		if re.findall('Skype', whoisdata) or re.findall('Microsoft', whoisdata):
+			pass
+		else:
+			print greentext + ip + resettext + ' :'
+			for line in open("/tmp/whois"):
+				if "desc" in line or "country" in line:
+					print line.strip('\n')
+			print
+
 def checkbot(user):
 	global checksum
 	randstr = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for i in range(random.randint(26,60)))
 	os.system('echo ' + randstr + " | md5sum | md5sum | md5sum | cut -d ' ' -f 1 > /tmp/md5chk")
-	p = open('/tmp/md5chk', 'r')
-	checksum = p.read().strip('\n')
-	p.close()
+	checksum = fread('/tmp/md5chk').strip('\n')
 	s.SendMessage(user, 'y0? ' + randstr)
 
 def checkname(user):
@@ -275,7 +295,7 @@ def ftunnel(user, port, server, channel):
 def complete(text, state):
 	cmds  = [ 'cleverbot', 'flood ', 'groupflood ', 'egroupflood ', 'msg ', 'cmdshellserver ', 'cmdshellclient ', 'tunnelserver ', 
 	'tunnelclient ', 'search ', 'isabot ', 'history ', 'help', 'voice ', 'chat ', 'ls', 'exit', 'call ', 'eflood ', 'online', 
-	'offline', 'send ', 'add ', 'show', 'hide', 'info ', 'callhistory', 'contacts', 'debug', 'status ', 'away', 'invisible' ]
+	'offline', 'send ', 'add ', 'show', 'hide', 'info ', 'callhistory', 'contacts', 'debug', 'status ', 'away', 'invisible', 'resolve ']
 	for f in s.Friends:
 		if f.Handle != 'echo123':
 			cmds.append(f.Handle)
@@ -363,6 +383,10 @@ def menu(cmd):
 	elif cmd.startswith('run '):
 		print 'running (' + jc + ')'
 		runcmd(jc)
+
+	elif cmd.startswith('resolve '):
+		if checkname(c[1]):
+			fresolve(c[1])
 
 	elif cmd.startswith('cleverbot'):
 		global clevertime
