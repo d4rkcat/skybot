@@ -19,6 +19,7 @@ Usage
 	search USER                 -   Search for USER
 	add USER                    -   Add USER to contacts
 	send USER                   -   Send a file to USER
+	resolve USER                -   Attempt to resolve USER IP address
 	isabot USER                 -   Check if USER is running SkyB0t
 	cmdshellserver  USER        -   Spawn a command shell and tunnel over skype to USER
 	cmdshellclient  USER        -   Connect to a command shell tunneled over skype from USER

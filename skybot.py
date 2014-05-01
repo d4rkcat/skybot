@@ -270,7 +270,7 @@ def fresolve(user):
 		else:
 			print greentext + ip + resettext + ' :'
 			for line in open("/tmp/whois"):
-				if "desc" in line or "country" in line:
+				if "desc" in line.lower() or "country" in line.lower() or "orgname" in line.lower() or "netname" in line.lower():
 					print line.strip('\n')
 			print
 
